@@ -31,11 +31,9 @@ if (pvkey === null) {
   wallet = web3.Keypair.fromSecretKey(arr);
 }
 
-function App() {
+function useSolanaAccount() {
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState(null);
-  const toast = useToast();
-  const [airdropProcessing, setAirdropProcessing] = useState(false);
 
   async function init() {
     let acc = await connection.getAccountInfo(wallet.publicKey);
@@ -49,6 +47,18 @@ function App() {
     setTransactions(transactions);
   }
 
+  useEffect(() => {
+    setInterval(init, 1000);
+  }, []);
+
+  return { account, transactions };
+}
+
+function App() {
+  const { account, transactions } = useSolanaAccount();
+  const toast = useToast();
+  const [airdropProcessing, setAirdropProcessing] = useState(false);
+
   const getAirdrop = useCallback(async () => {
     setAirdropProcessing(true);
     try {
@@ -60,13 +70,8 @@ function App() {
     } catch (error) {
       toast({ title: 'Airdrop failed', description: error });
     }
-    init();
     setAirdropProcessing(false);
   }, [toast]);
-
-  useEffect(() => {
-    init();
-  }, []);
 
   return (
     <ChakraProvider theme={theme}>
