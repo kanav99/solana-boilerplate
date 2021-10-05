@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ChakraProvider,
   Box,
   Text,
   VStack,
   Grid,
+  Button,
+  useToast,
   theme,
 } from '@chakra-ui/react';
 import { ColorModeSwitcher } from './ColorModeSwitcher';
@@ -28,6 +30,24 @@ if (pvkey === null) {
 
 function App() {
   const [account, setAccount] = useState(null);
+  const toast = useToast();
+  const [airdropProcessing, setAirdropProcessing] = useState(false);
+
+  const getAirdrop = useCallback(async () => {
+    setAirdropProcessing(true);
+    try {
+      var airdropSignature = await connection.requestAirdrop(
+        wallet.publicKey,
+        web3.LAMPORTS_PER_SOL
+      );
+      await connection.confirmTransaction(airdropSignature);
+    } catch (error) {
+      toast({ title: 'Airdrop failed', description: error });
+    }
+    let acc = await connection.getAccountInfo(wallet.publicKey);
+    setAccount(acc);
+    setAirdropProcessing(false);
+  }, [toast]);
 
   useEffect(() => {
     async function init() {
@@ -50,6 +70,9 @@ function App() {
                 ? account.lamports / web3.LAMPORTS_PER_SOL + ' SOL'
                 : 'Loading..'}
             </Text>
+            <Button onClick={getAirdrop} isLoading={airdropProcessing}>
+              Get Airdrop of 1 SOL
+            </Button>
           </VStack>
         </Grid>
       </Box>
