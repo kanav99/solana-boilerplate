@@ -7,6 +7,9 @@ import {
   Grid,
   Button,
   useToast,
+  Code,
+  HStack,
+  Heading,
   theme,
 } from '@chakra-ui/react';
 import { ColorModeSwitcher } from './ColorModeSwitcher';
@@ -30,8 +33,21 @@ if (pvkey === null) {
 
 function App() {
   const [account, setAccount] = useState(null);
+  const [transactions, setTransactions] = useState(null);
   const toast = useToast();
   const [airdropProcessing, setAirdropProcessing] = useState(false);
+
+  async function init() {
+    let acc = await connection.getAccountInfo(wallet.publicKey);
+    setAccount(acc);
+    let transactions = await connection.getConfirmedSignaturesForAddress2(
+      wallet.publicKey,
+      {
+        limit: 10,
+      }
+    );
+    setTransactions(transactions);
+  }
 
   const getAirdrop = useCallback(async () => {
     setAirdropProcessing(true);
@@ -44,16 +60,11 @@ function App() {
     } catch (error) {
       toast({ title: 'Airdrop failed', description: error });
     }
-    let acc = await connection.getAccountInfo(wallet.publicKey);
-    setAccount(acc);
+    init();
     setAirdropProcessing(false);
   }, [toast]);
 
   useEffect(() => {
-    async function init() {
-      let acc = await connection.getAccountInfo(wallet.publicKey);
-      setAccount(acc);
-    }
     init();
   }, []);
 
@@ -73,6 +84,17 @@ function App() {
             <Button onClick={getAirdrop} isLoading={airdropProcessing}>
               Get Airdrop of 1 SOL
             </Button>
+            <Heading>Transactions</Heading>
+            {transactions && (
+              <VStack>
+                {transactions.map((v, i, arr) => (
+                  <HStack key={'transaction-' + i}>
+                    <Text>Signature: </Text>
+                    <Code>{v.signature}</Code>
+                  </HStack>
+                ))}
+              </VStack>
+            )}
           </VStack>
         </Grid>
       </Box>
