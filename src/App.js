@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -15,46 +15,56 @@ import {
 import { ColorModeSwitcher } from './ColorModeSwitcher';
 
 import * as web3 from '@solana/web3.js';
-
-const connection = new web3.Connection(
-  web3.clusterApiUrl('devnet'),
-  'confirmed'
-);
-
-const pvkey = localStorage.getItem('pvkey');
-var wallet;
-if (pvkey === null) {
-  wallet = web3.Keypair.generate();
-  localStorage.setItem('pvkey', wallet.secretKey);
-} else {
-  let arr = new Uint8Array(pvkey.replace(/, +/g, ',').split(',').map(Number));
-  wallet = web3.Keypair.fromSecretKey(arr);
-}
+import {
+  ConnectionProvider,
+  WalletProvider,
+  useConnection,
+  useWallet,
+} from '@solana/wallet-adapter-react';
+import {
+  getPhantomWallet,
+  getSolflareWallet,
+  getSolletWallet,
+  getSolletExtensionWallet,
+} from '@solana/wallet-adapter-wallets';
+import {
+  WalletModalProvider,
+  WalletMultiButton,
+} from '@solana/wallet-adapter-react-ui';
+require('@solana/wallet-adapter-react-ui/styles.css');
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null);
   const [transactions, setTransactions] = useState(null);
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
 
-  async function init() {
-    let acc = await connection.getAccountInfo(wallet.publicKey);
-    setAccount(acc);
-    let transactions = await connection.getConfirmedSignaturesForAddress2(
-      wallet.publicKey,
-      {
-        limit: 10,
-      }
-    );
-    setTransactions(transactions);
-  }
+  const init = useCallback(async () => {
+    if (publicKey) {
+      let acc = await connection.getAccountInfo(publicKey);
+      setAccount(acc);
+      let transactions = await connection.getConfirmedSignaturesForAddress2(
+        publicKey,
+        {
+          limit: 10,
+        }
+      );
+      setTransactions(transactions);
+    }
+  }, [publicKey, connection]);
 
   useEffect(() => {
-    setInterval(init, 1000);
-  }, []);
+    if (publicKey) {
+      setInterval(init, 1000);
+    }
+  }, [init, publicKey]);
 
   return { account, transactions };
 }
 
-function App() {
+function Home() {
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
   const { account, transactions } = useSolanaAccount();
   const toast = useToast();
   const [airdropProcessing, setAirdropProcessing] = useState(false);
@@ -63,23 +73,24 @@ function App() {
     setAirdropProcessing(true);
     try {
       var airdropSignature = await connection.requestAirdrop(
-        wallet.publicKey,
+        publicKey,
         web3.LAMPORTS_PER_SOL
       );
       await connection.confirmTransaction(airdropSignature);
     } catch (error) {
-      toast({ title: 'Airdrop failed', description: error });
+      console.log(error);
+      toast({ title: 'Airdrop failed', description: 'unknown error' });
     }
     setAirdropProcessing(false);
-  }, [toast]);
+  }, [toast, publicKey, connection]);
 
   return (
-    <ChakraProvider theme={theme}>
-      <Box textAlign="center" fontSize="xl">
-        <Grid minH="100vh" p={3}>
-          <ColorModeSwitcher justifySelf="flex-end" />
+    <Box textAlign="center" fontSize="xl">
+      <Grid minH="100vh" p={3}>
+        <ColorModeSwitcher justifySelf="flex-end" />
+        {publicKey && (
           <VStack spacing={8}>
-            <Text>Wallet Public Key: {wallet.publicKey.toBase58()}</Text>
+            <Text>Wallet Public Key: {publicKey.toBase58()}</Text>
             <Text>
               Balance:{' '}
               {account
@@ -101,8 +112,35 @@ function App() {
               </VStack>
             )}
           </VStack>
-        </Grid>
-      </Box>
+        )}
+        {!publicKey && <WalletMultiButton />}
+      </Grid>
+    </Box>
+  );
+}
+
+function App() {
+  const network = 'devnet';
+  const endpoint = web3.clusterApiUrl(network);
+  const wallets = useMemo(
+    () => [
+      getPhantomWallet(),
+      getSolflareWallet(),
+      getSolletWallet({ network }),
+      getSolletExtensionWallet({ network }),
+    ],
+    [network]
+  );
+
+  return (
+    <ChakraProvider theme={theme}>
+      <ConnectionProvider endpoint={endpoint}>
+        <WalletProvider wallets={wallets} autoConnect>
+          <WalletModalProvider>
+            <Home></Home>
+          </WalletModalProvider>
+        </WalletProvider>
+      </ConnectionProvider>
     </ChakraProvider>
   );
 }
