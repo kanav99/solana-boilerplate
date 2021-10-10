@@ -31,6 +31,7 @@ import {
   WalletModalProvider,
   WalletMultiButton,
 } from '@solana/wallet-adapter-react-ui';
+import { Greet } from './Greet';
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 function useSolanaAccount() {
@@ -100,6 +101,7 @@ function Home() {
             <Button onClick={getAirdrop} isLoading={airdropProcessing}>
               Get Airdrop of 1 SOL
             </Button>
+            <Greet />
             <Heading>Transactions</Heading>
             {transactions && (
               <VStack>
