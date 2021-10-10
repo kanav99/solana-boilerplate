@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { VStack, HStack, Button, Text, Input } from '@chakra-ui/react';
+import { VStack, HStack, Button, Input } from '@chakra-ui/react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { FormControl, FormLabel } from '@chakra-ui/react';
 import * as borsh from 'borsh';
 import {
   PublicKey,
@@ -126,17 +127,28 @@ export function Greet() {
 
   const [recipient, setRecipient] = useState('');
   return (
-    <VStack width="full">
-      <HStack>
-        <Text>Total greetings: {counter === null ? 'Loading..' : counter}</Text>
-        <Button onClick={greetYourself}>Greet Yourself</Button>
-      </HStack>
-      <HStack>
-        <Text width="full">Greet Someone: </Text>
-        <Input
-          value={recipient}
-          onChange={e => setRecipient(e.target.value)}
-        ></Input>
+    <>
+      <VStack width="full" spacing={8} borderRadius={10} borderWidth={2} p={10}>
+        <FormControl id="greetings">
+          <FormLabel>No. of greetings recieved</FormLabel>
+          <Input
+            type="text"
+            value={counter === null ? 'Loading..' : counter}
+            readOnly
+          />
+        </FormControl>
+        <HStack>
+          <Button onClick={greetYourself}>Greet Yourself</Button>
+        </HStack>
+      </VStack>
+      <VStack width="full" spacing={8} borderRadius={10} borderWidth={2} p={10}>
+        <FormControl id="send">
+          <FormLabel>Send greeting to public key</FormLabel>
+          <Input
+            value={recipient}
+            onChange={e => setRecipient(e.target.value)}
+          ></Input>
+        </FormControl>
         <Button
           onClick={() => {
             greet(recipient);
@@ -144,7 +156,7 @@ export function Greet() {
         >
           Greet
         </Button>
-      </HStack>
-    </VStack>
+      </VStack>
+    </>
   );
 }
