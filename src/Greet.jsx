@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { HStack, Button, Text } from '@chakra-ui/react';
+import { VStack, HStack, Button, Text, Input } from '@chakra-ui/react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import * as borsh from 'borsh';
 import {
@@ -44,48 +44,56 @@ export function Greet() {
   const { connection } = useConnection();
   const [counter, setCounter] = useState(null);
 
-  const greet = useCallback(async () => {
-    const greetedPubkey = await PublicKey.createWithSeed(
-      wallet.publicKey,
-      GREETING_SEED,
-      programId
-    );
-
-    const greetedAccount = await connection.getAccountInfo(greetedPubkey);
-    if (greetedAccount === null) {
-      const lamports = await connection.getMinimumBalanceForRentExemption(
-        GREETING_SIZE
+  const greet = useCallback(
+    async publicKey => {
+      const recipient = new PublicKey(publicKey);
+      const greetedPubkey = await PublicKey.createWithSeed(
+        recipient,
+        GREETING_SEED,
+        programId
       );
 
-      const transaction = new Transaction().add(
-        SystemProgram.createAccountWithSeed({
-          fromPubkey: wallet.publicKey,
-          basePubkey: wallet.publicKey,
-          seed: GREETING_SEED,
-          newAccountPubkey: greetedPubkey,
-          lamports,
-          space: GREETING_SIZE,
-          programId,
-        })
+      const greetedAccount = await connection.getAccountInfo(greetedPubkey);
+      if (greetedAccount === null) {
+        const lamports = await connection.getMinimumBalanceForRentExemption(
+          GREETING_SIZE
+        );
+
+        const transaction = new Transaction().add(
+          SystemProgram.createAccountWithSeed({
+            fromPubkey: recipient,
+            basePubkey: recipient,
+            seed: GREETING_SEED,
+            newAccountPubkey: greetedPubkey,
+            lamports,
+            space: GREETING_SIZE,
+            programId,
+          })
+        );
+
+        const signature = await wallet.sendTransaction(transaction, connection);
+        await connection.confirmTransaction(signature, 'processed');
+      }
+
+      const instruction = new TransactionInstruction({
+        keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
+        programId,
+        data: Buffer.alloc(0),
+      });
+
+      const signature = await wallet.sendTransaction(
+        new Transaction().add(instruction),
+        connection
       );
 
-      const signature = await wallet.sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, 'processed');
-    }
+    },
+    [connection, wallet]
+  );
 
-    const instruction = new TransactionInstruction({
-      keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
-      programId,
-      data: Buffer.alloc(0),
-    });
-
-    const signature = await wallet.sendTransaction(
-      new Transaction().add(instruction),
-      connection
-    );
-
-    await connection.confirmTransaction(signature, 'processed');
-  }, [connection, wallet]);
+  const greetYourself = useCallback(async () => {
+    await greet(wallet.publicKey.toBase58());
+  }, [greet, wallet.publicKey]);
 
   useEffect(() => {
     async function addListener() {
@@ -115,10 +123,28 @@ export function Greet() {
     }
     addListener();
   }, [connection, wallet.publicKey]);
+
+  const [recipient, setRecipient] = useState('');
   return (
-    <HStack>
-      <Text>Total greetings: {counter === null ? 'Loading..' : counter}</Text>
-      <Button onClick={greet}>Greet Yourself</Button>
-    </HStack>
+    <VStack width="full">
+      <HStack>
+        <Text>Total greetings: {counter === null ? 'Loading..' : counter}</Text>
+        <Button onClick={greetYourself}>Greet Yourself</Button>
+      </HStack>
+      <HStack>
+        <Text width="full">Greet Someone: </Text>
+        <Input
+          value={recipient}
+          onChange={e => setRecipient(e.target.value)}
+        ></Input>
+        <Button
+          onClick={() => {
+            greet(recipient);
+          }}
+        >
+          Greet
+        </Button>
+      </HStack>
+    </VStack>
   );
 }
